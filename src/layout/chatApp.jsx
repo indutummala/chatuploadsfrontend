@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 import io from "socket.io-client";
+import Picker from "emoji-picker-react"; // Using emoji-picker-react
 import {
   ChatBubbleLeftRightIcon,
   UserGroupIcon,
@@ -22,6 +23,8 @@ import {
   EllipsisVerticalIcon,
   PaperClipIcon,
   DocumentIcon,
+  InformationCircleIcon,
+  UserIcon,
 } from "@heroicons/react/24/solid";
 
 const socket = io("http://localhost:5000", {
@@ -58,6 +61,10 @@ const ChatApp = () => {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false); // State to show emoji picker
+  const [emoji, setEmoji] = useState(""); // State to store the selected emoji
+  const [showProfile, setShowProfile] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem("darkMode") === "true";
   });
@@ -68,6 +75,9 @@ const ChatApp = () => {
   const imageInputRef = useRef(null);
   const documentInputRef = useRef(null);
   const videoInputRef = useRef(null);
+  const [profilePhoto, setProfilePhoto] = useState(null); // State for profile photo
+
+
 
   useEffect(() => {
       const userId = localStorage.getItem("userId");
@@ -195,12 +205,56 @@ const ChatApp = () => {
     setSearch(e.target.value);
     fetchChannels(e.target.value); // Fetch channels based on search query
   };
-  
+  const handleEmojiPickerHideShow = () => {
+    setShowEmojiPicker(!showEmojiPicker);
+  };
+  // Handle emoji selection
+  const handleEmojiclick = (emojiObject) => {
+    console.log('Selected emoji object:', emojiObject);
+    if (emojiObject && emojiObject.emoji) {
+      setNewMessage((prevMessage) => prevMessage + emojiObject.emoji);
+      setShowEmojiPicker(false); // Hide the emoji picker after selecting an emoji
+    } else {
+      console.error('Invalid emoji object:', emojiObject);
+    }
+  };
+
+  const handleProfileUpdate = () => {
+    localStorage.setItem("userProfile", JSON.stringify(user));
+    setEditingProfile(false);
+  };
+
+  const handleProfilePhotoChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePhoto(reader.result); // Set the uploaded image as the profile photo
+      };
+      reader.readAsDataURL(file); // Convert the file to a data URL
+    }
+  };
 
   return (
     <div className={`flex h-screen ${darkMode ? "dark" : ""}`}>
       {/* Sidebar */}
       <aside className="w-20 bg-gradient-to-br from-blue-300 to-gray-500 dark:from-gray-800 dark:to-gray-900 flex flex-col py-6 space-y-6 items-center">
+
+      <div
+          className="h-16 w-16 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-lg cursor-pointer"
+          onClick={() => setShowProfile(true)}
+        >
+          {profilePhoto ? (
+            <img
+              src={profilePhoto}
+              alt="Profile"
+              className="h-full w-full object-cover rounded-full"
+            />
+          ) : (
+            user?.name?.charAt(0) || "?"
+          )}
+        </div>
+
         {loading ? (
           <div className="h-16 w-16 rounded-full bg-gray-300 animate-pulse" />
         ) : user ? (
@@ -220,7 +274,7 @@ const ChatApp = () => {
 
         <div className="space-y-6">
           <ChatBubbleLeftRightIcon className="h-8 w-8 text-white hover:text-gray-300 cursor-pointer" />
-          <UserGroupIcon className="h-8 w-8 text-white hover:text-gray-300 cursor-pointer" />
+          { <UserGroupIcon className="h-8 w-8 text-white hover:text-gray-300 cursor-pointer" /> }
           <BellIcon className="h-8 w-8 text-white hover:text-gray-300 cursor-pointer" />
           <CalendarDaysIcon className="h-8 w-8 text-white hover:text-gray-300 cursor-pointer" />
           <InboxArrowDownIcon className="h-8 w-8 text-white hover:text-gray-300 cursor-pointer" />
@@ -244,6 +298,122 @@ const ChatApp = () => {
           <CogIcon />
         </button>
       </aside>
+
+      {/* Profile Popup */}
+      {showProfile && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-none w-full h-full max-w-none mx-0">
+            <div className="flex flex-col items-end">
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Profile</h2>
+
+              {editingProfile ? (
+                <div className="mt-4 space-y-2 text-right">
+                  <div className="flex items-center space-x-2">
+                    <UserIcon className="h-6 w-6 text-gray-500 dark:text-gray-300" />
+                    <input
+                      type="text"
+                      className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:text-white"
+                      placeholder="Name"
+                      value={user?.name || ""}
+                      onChange={(e) => setUser({ ...user, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <InformationCircleIcon className="h-6 w-6 text-gray-500 dark:text-gray-300" />
+                    <input
+                      type="text"
+                      className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:text-white"
+                      placeholder="About"
+                      value={user?.about || ""}
+                      onChange={(e) => setUser({ ...user, about: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <PhoneIcon className="h-6 w-6 text-gray-500 dark:text-gray-300" />
+                    <input
+                      type="text"
+                      className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:text-white"
+                      placeholder="Phone"
+                      value={user?.phone || ""}
+                      onChange={(e) => setUser({ ...user, phone: e.target.value })}
+                    />
+                  </div>
+                  {/* File input for profile photo */}
+                  <input
+                    type="file"
+                    className="mt-4 p-2 border rounded-lg dark:bg-gray-700 dark:text-white"
+                    onChange={handleProfilePhotoChange}
+                  />
+                </div>
+              ) : (
+                <div className="mt-6 space-y-6 text-right">
+                  <div className="relative w-32 h-32 mx-auto mb-4">
+                    {profilePhoto ? (
+                      <img
+                        src={profilePhoto}
+                        alt="Profile"
+                        className="w-full h-full object-cover rounded-full"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 rounded-full flex items-center justify-center text-gray-600">
+                        {user?.name?.charAt(0) || "?"}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <UserIcon className="h-6 w-6 text-gray-500 dark:text-gray-300" />
+                    <p className="text-gray-600 dark:text-gray-400">
+                      <strong>Name:</strong> {user?.name || "N/A"}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <InformationCircleIcon className="h-6 w-6 text-gray-500 dark:text-gray-300" />
+                    <p className="text-gray-600 dark:text-gray-400">
+                      <strong>About:</strong> {user?.about || "No bio yet."}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <PhoneIcon className="h-6 w-6 text-gray-500 dark:text-gray-300" />
+                    <p className="text-gray-600 dark:text-gray-400">
+                      <strong>Phone:</strong> {user?.phone || "N/A"}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-10 flex justify-end space-x-10">
+                {editingProfile ? (
+                  <button
+                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                    onClick={handleProfileUpdate}
+                  >
+                    Save
+                  </button>
+                ) : (
+                  <button
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                    onClick={() => setEditingProfile(true)}
+                  >
+                    Edit
+                  </button>
+                )}
+                <button
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                  onClick={() => setShowProfile(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    
+
 
       {/* Channel List */}
             <aside className="w-80 bg-gray-100 dark:bg-gray-900 border-r dark:border-gray-700 flex flex-col">
@@ -437,7 +607,15 @@ const ChatApp = () => {
           <button onClick={sendMessage}>
             <div className="flex space-x-4">
               <PlusIcon className="h-6 w-6 text-gray-600 cursor-pointer" />
-              <FaceSmileIcon className="h-6 w-6 text-gray-600 cursor-pointer" />
+              <FaceSmileIcon
+                  className="h-6 w-6 text-gray-400 hover:text-gray-600 cursor-pointer"
+                  onClick={handleEmojiPickerHideShow}
+                />
+                {showEmojiPicker && (
+                  <div className="absolute bottom-12 right-0 z-10">
+                    <Picker onEmojiClick={handleEmojiclick} />
+                  </div>
+                )}
               <MicrophoneIcon className="h-6 w-6 text-gray-600 cursor-pointer" />
               <PaperAirplaneIcon className="h-6 w-6 text-gray-500 dark:text-gray-400" />
             </div>
